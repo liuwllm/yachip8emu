@@ -39,7 +39,7 @@ pub struct Emu {
 
 impl Emu {
     pub fn new() -> Self {
-        Self {
+        let mut emu_inst = Self {
             mem: [0; MEM_SIZE],
             display: [false, SCREEN_WIDTH * SCREEN_HEIGHT],
             pc: START_ADDR,
@@ -49,5 +49,9 @@ impl Emu {
             s_timer: 0,
             v_reg: [0; NUM_V]
         }
+
+        emu_inst.mem[..FONTSET_SIZE].copy_from_slice(&FONTSET);
+
+        emu_inst
     }
 }
