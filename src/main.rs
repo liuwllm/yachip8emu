@@ -54,4 +54,44 @@ impl Emu {
 
         emu_inst
     }
+
+    pub fn reset(&mut self) {
+        self.mem = [0; MEM_SIZE];
+        self.display = [false, SCREEN_WIDTH * SCREEN_HEIGHT];
+        self.pc = START_ADDR,;
+        self.i_reg = 0;
+        self.stack = Vec::new();
+        self.d_timer = 0;
+        self.s_timer = 0;
+        self.v_reg = [0; NUM_V];
+        self.mem[..FONTSET_SIZE].copy_from_slice(&FONTSET);
+    }
+
+    pub fn cycle(&mut self) {
+        let op = self.fetch();
+
+        self.execute(op);
+    }
+
+    fn fetch(&mut self) -> u16 {
+        let hi_byte = self.mem[self.pc as usize] as u16;
+        let lo_byte = self.mem[(self.pc + 1) as usize] as u16;
+        let op = (hi_byte << 8) | lower byte;
+
+        self.pc += 2;
+
+        op
+    }
+
+    fn execute(&mut self, op: u16) {
+        let nibble1 = (op & 0xF000) >> 12;
+        let nibble2 = (op & 0x0F00) >> 8;
+        let nibble3 = (op & 0x00F0) >> 4;
+        let nibble4 = op & 0x000F;
+
+        match(nibble1, nibble2, nibble3, nibble4) {
+            ()
+        }
+    }
+
 }
