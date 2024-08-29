@@ -67,10 +67,23 @@ impl Emu {
         self.mem[..FONTSET_SIZE].copy_from_slice(&FONTSET);
     }
 
-    pub fn cycle(&mut self) {
+    pub fn tick(&mut self) {
         let op = self.fetch();
 
         self.execute(op);
+    }
+
+    pub fn tick_timers(& mut self) {
+        if self.dt > 0 {
+            self.dt -= 1;
+        }
+
+        if self.st > 0 {
+            if self.st == 1 {
+                // BEEP
+            }
+            self.st -= 1;
+        }
     }
 
     fn fetch(&mut self) -> u16 {
