@@ -1,6 +1,9 @@
 mod cpu;
 
 use std::env;
+use std::fs::File;
+use std::io::Read;
+
 use sdl2::pixels::Color;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -35,6 +38,12 @@ fn main() {
     canvas.present();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
+
+    let mut chip8_inst = cpu::Emu::new();
+    let mut rom = File::open(&args[1]).expect("Unable to open file");
+    let mut buffer = Vec::new();
+    rom.read_to_end(&mut buffer).unwrap();
+    chip8_inst.load(&buffer);
 
     'gameloop: loop {
         for event in event_pump.poll_iter() {
