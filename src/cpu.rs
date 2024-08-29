@@ -74,15 +74,15 @@ impl Emu {
     }
 
     pub fn tick_timers(& mut self) {
-        if self.dt > 0 {
-            self.dt -= 1;
+        if self.d_timer > 0 {
+            self.d_timer -= 1;
         }
 
-        if self.st > 0 {
-            if self.st == 1 {
+        if self.s_timer > 0 {
+            if self.s_timer == 1 {
                 // BEEP
             }
-            self.st -= 1;
+            self.s_timer -= 1;
         }
     }
 
@@ -103,8 +103,66 @@ impl Emu {
         let nibble4 = op & 0x000F;
 
         match(nibble1, nibble2, nibble3, nibble4) {
-            (1_u16..=u16::MAX, _, _, _) => todo!(),
-            (0_u16, _, _, _) => todo!()
+            // 00E0: Clear screen
+            (0, 0, 0xE, 0) => {
+                self.display = [false; SCREEN_WIDTH * SCREEN_HEIGHT];
+            }
+
+            // 1NNN: Jump 
+            (1, _, _, _) => {
+                let nnn = op & 0x0FFF;
+                self.pc = nnn;
+            }
+            // 6XNN: Set
+            (6, _, _, _) => {
+                let x = nibble2 as usize;
+                let nn = (op & 0x00FF) as u8;
+
+                self.v_reg[x] = nn;
+            }
+
+            // ANNN: Set index
+            (0xA, _, _, _) => {
+                let nnn = op & 0x0FFF;
+                self.i_reg = nnn;
+            }
+
+            // DXYN: Display
+            (0xD, _, _, _) => {
+                let x = nibble2 as usize;
+                let y = nibble2 as usize;
+                let n = nibble4;
+
+                let x_coord = self.v_reg[x] as u16;
+                let y_coord = self.v_reg[y] as u16;
+
+                self.v_reg[0xF] = 0;
+
+                // Iterate over rows
+                for row in 0..n {
+                    // Retrieve the byte (8 bits) for this row
+                    let sprite_byte = self.mem[(self.i_reg + row as u16) as usize];
+
+                    for col in 0..8 {
+                        if sprite_byte & (0b1000_0000 >> col) != 0 {
+                            let adjusted_x = (x_coord + col) as usize % SCREEN_WIDTH;
+                            let adjusted_y = (y_coord + row) as usize % SCREEN_HEIGHT;
+
+                            let flat_index = x + SCREEN_WIDTH * y;
+
+                            if self.display[flat_index] != false {
+                                self.display[flat_index] = false;
+                                self.v_reg[0xF] = 1;
+                            }
+                            else {
+                                self.display[flat_index] = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            (_, _, _, _) => unimplemented!("Unimplemented opcode: {}", op),
         }
     }
 
