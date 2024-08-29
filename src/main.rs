@@ -25,12 +25,26 @@ fn main() {
         .build()
         .unwrap();
     
-        let mut canvas = window
-            .into_canvas()
-            .present_vsync()
-            .build()
-            .unwrap();
-        
-        canvas.clear();
-        canvas.present();
+    let mut canvas = window
+        .into_canvas()
+        .present_vsync()
+        .build()
+        .unwrap();
+    
+    canvas.clear();
+    canvas.present();
+
+    let mut event_pump = sdl_context.event_pump().unwrap();
+
+    'gameloop: loop {
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit{..} => {
+                    break 'gameloop;
+                },
+                _ => ()
+            }
+        }
+    }
+    
 }
