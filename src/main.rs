@@ -11,9 +11,13 @@ use sdl2::video::Window;
 use sdl2::keyboard::Keycode;
 use sdl2::rect::Rect;
 
+use cpu::Emu;
+use cpu::SCREEN_WIDTH;
+use cpu::SCREEN_HEIGHT;
+
 const SCALE: u32 = 15;
-const WINDOW_WIDTH: u32 = (cpu::SCREEN_WIDTH as u32) * SCALE;
-const WINDOW_HEIGHT: u32 = (cpu::SCREEN_HEIGHT as u32) * SCALE;
+const WINDOW_WIDTH: u32 = (SCREEN_WIDTH as u32) * SCALE;
+const WINDOW_HEIGHT: u32 = (SCREEN_HEIGHT as u32) * SCALE;
 const TICKS_PER_FRAME: usize = 10;
 
 fn main() {
@@ -42,7 +46,7 @@ fn main() {
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let mut chip8_inst = cpu::Emu::new();
+    let mut chip8_inst = Emu::new();
     let mut rom = File::open(&args[1]).expect("Unable to open file");
     let mut buffer = Vec::new();
     rom.read_to_end(&mut buffer).unwrap();
@@ -58,20 +62,19 @@ fn main() {
             }
         }
         
-        for _ in 0.. TICKS_PER_FRAME {
-            chip8_inst.tick();
-        }
+        chip8_inst.tick();
+        chip8_inst.tick_timers();
         draw_screen(&chip8_inst, &mut canvas);
     }
 }
 
-fn draw_screen(emu: &cpu::Emu, canvas: &mut Canvas<Window>) {
-    canvas.set_draw_color(Color::RGB(0, 0, 0));
+fn draw_screen(emu: &Emu, canvas: &mut Canvas<Window>) {
+    canvas.set_draw_color(Color::RGB(84, 49, 163));
     canvas.clear();
 
     let screen_buf = emu.get_display();
 
-    canvas.set_draw_color(Color::RGB(255, 255, 255));
+    canvas.set_draw_color(Color::RGB(123, 156, 237));
 
     for (i, pixel) in screen_buf.iter().enumerate() {
         if *pixel {
@@ -82,4 +85,5 @@ fn draw_screen(emu: &cpu::Emu, canvas: &mut Canvas<Window>) {
             canvas.fill_rect(rect).unwrap();
         }
     }
+    canvas.present();
 }

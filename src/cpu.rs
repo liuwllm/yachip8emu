@@ -69,7 +69,7 @@ impl Emu {
 
     pub fn tick(&mut self) {
         let op = self.fetch();
-
+        print!("{}:   ", self.pc);
         self.execute(op);
     }
 
@@ -106,61 +106,77 @@ impl Emu {
             // 00E0: Clear screen
             (0, 0, 0xE, 0) => {
                 self.display = [false; SCREEN_WIDTH * SCREEN_HEIGHT];
-            }
+                print!("CLS\n");
+            },
 
             // 1NNN: Jump 
             (1, _, _, _) => {
                 let nnn = op & 0x0FFF;
                 self.pc = nnn;
-            }
+                print!("JP {}\n", nnn);
+            },
             // 6XNN: Set
             (6, _, _, _) => {
                 let x = nibble2 as usize;
                 let nn = (op & 0x00FF) as u8;
 
                 self.v_reg[x] = nn;
+                print!("LD V{}, {}\n", x, nn);
+            },
+            
+            // 7XNN: Add
+            (7, _, _, _) => {
+                let x = nibble2 as usize;
+                let nn = (op & 0x00FF) as u8;
+                self.v_reg[x] += nn;
+                print!("ADD V{}, {}\n", x, nn);
             }
 
             // ANNN: Set index
             (0xA, _, _, _) => {
                 let nnn = op & 0x0FFF;
                 self.i_reg = nnn;
-            }
+                print!("LD I, {}\n", nnn);
+            },
 
             // DXYN: Display
             (0xD, _, _, _) => {
-                let x = nibble2 as usize;
-                let y = nibble2 as usize;
-                let n = nibble4;
-
-                let x_coord = self.v_reg[x] as u16;
-                let y_coord = self.v_reg[y] as u16;
-
-                self.v_reg[0xF] = 0;
-
-                // Iterate over rows
-                for row in 0..n {
-                    // Retrieve the byte (8 bits) for this row
-                    let sprite_byte = self.mem[(self.i_reg + row as u16) as usize];
-
-                    for col in 0..8 {
-                        if sprite_byte & (0b1000_0000 >> col) != 0 {
-                            let adjusted_x = (x_coord + col) as usize % SCREEN_WIDTH;
-                            let adjusted_y = (y_coord + row) as usize % SCREEN_HEIGHT;
-
-                            let flat_index = x + SCREEN_WIDTH * y;
-
-                            if self.display[flat_index] != false {
-                                self.display[flat_index] = false;
-                                self.v_reg[0xF] = 1;
-                            }
-                            else {
-                                self.display[flat_index] = true;
-                            }
+                // Get the (x, y) coords for our sprite
+                let x_coord = self.v_reg[nibble2 as usize] as u16;
+                let y_coord = self.v_reg[nibble3 as usize] as u16;
+                // The last digit determines how many rows high our sprite is
+                let num_rows = nibble4;
+                // Keep track if any pixels were flipped
+                let mut flipped = false;
+                // Iterate over each row of our sprite
+                for y_line in 0..num_rows {
+                    // Determine which memory address our row's data is stored
+                    let addr = self.i_reg + y_line as u16;
+                    let pixels = self.mem[addr as usize];
+                    // Iterate over each column in our row
+                    for x_line in 0..8 {
+                        // Use a mask to fetch current pixel's bit. Only flip if a 1
+                        if (pixels & (0b1000_0000 >> x_line)) != 0 {
+                            // Sprites should wrap around screen, so apply modulo
+                            let x = (x_coord + x_line) as usize % SCREEN_WIDTH;
+                            let y = (y_coord + y_line) as usize % SCREEN_HEIGHT;
+                            // Get our pixel's index for our 1D screen array
+                            let idx = x + SCREEN_WIDTH * y;
+                            // Check if we're about to flip the pixel and set
+                            flipped |= self.display[idx];
+                            self.display[idx] ^= true;
                         }
                     }
                 }
-            }
+                // Populate VF register
+                if flipped {
+                    self.v_reg[0xF] = 1;
+                } else {
+                    self.v_reg[0xF] = 0;
+                }
+
+                print!("DRW V{}, V{}, {}\n", nibble2, nibble3, nibble4);
+            },
 
             (_, _, _, _) => unimplemented!("Unimplemented opcode: {}", op),
         }
