@@ -48,8 +48,8 @@ impl Emu {
             stack: Vec::new(),
             d_timer: 0,
             s_timer: 0,
-            v_reg: [0; NUM_V]
-            cosmac: true
+            v_reg: [0; NUM_V],
+            cosmac: false
         };
 
         emu_inst.mem[..FONTSET_SIZE].copy_from_slice(&FONTSET);
@@ -68,6 +68,10 @@ impl Emu {
         self.v_reg = [0; NUM_V];
         self.mem[..FONTSET_SIZE].copy_from_slice(&FONTSET);
         self.cosmac = false;
+    }
+
+    pub fn set_cosmac(&mut self) {
+        self.cosmac = true;
     }
 
     pub fn tick(&mut self) {
@@ -149,7 +153,7 @@ impl Emu {
             // 3XNN: Skip if VX = NN
             (3, _, _, _) => {
                 let x = nibble2 as usize;
-                let nn = op & 0x00FF;
+                let nn = (op & 0x00FF) as u8;
 
                 if self.v_reg[x] == nn {
                     self.pc += 2;
@@ -161,7 +165,7 @@ impl Emu {
             // 4XNN: Skip if VX != NN
             (4, _, _, _) => {
                 let x = nibble2 as usize;
-                let nn = op & 0x00FF;
+                let nn = (op & 0x00FF) as u8;
 
                 if self.v_reg[x] != nn {
                     self.pc +=2;
@@ -223,7 +227,7 @@ impl Emu {
             },
 
             // 8XY2: Binary AND
-            (8, _, _ 2) => {
+            (8, _, _, 2) => {
                 let x = nibble2 as usize;
                 let y = nibble3 as usize;
 
@@ -285,7 +289,7 @@ impl Emu {
                 let x = nibble2 as usize;
                 let y = nibble3 as usize;
 
-                if cosmac { 
+                if self.cosmac { 
                     self.v_reg[x] = self.v_reg[y];
                 }
                 
@@ -319,7 +323,7 @@ impl Emu {
                 let x = nibble2 as usize;
                 let y = nibble3 as usize;
 
-                if cosmac {
+                if self.cosmac {
                     self.v_reg[x] = self.v_reg[y];
                 }
 

@@ -22,11 +22,23 @@ const TICKS_PER_FRAME: usize = 10;
 
 fn main() {
     let args: Vec<_> = env::args().collect();
+
+    let mut cosmac_on = false;
+
     if args.len() != 2 {
-        println!("Usage: cargo run path/to/game");
-        println!("Options:");
-        println!("   -c: toggle original COSMAC VIP functionality");
-        return;
+        if args.len() == 3 && &args[2] == "-c" {
+            println!("COSMAC toggled on");
+            cosmac_on = true;
+        } 
+        else {
+            println!("Usage: cargo run path/to/game");
+            println!("Options:");
+            println!("   -c: toggle original COSMAC VIP functionality");
+            return;
+        }
+    }
+    else {
+        println!("COSMAC toggled off");
     }
 
     let sdl_context = sdl2::init().unwrap();
@@ -50,8 +62,8 @@ fn main() {
 
     let mut chip8_inst = Emu::new();
 
-    if &args[2] == "-c" {
-        chip8_inst.cosmac = true;
+    if cosmac_on {
+        chip8_inst.set_cosmac();
     }
 
     let mut rom = File::open(&args[1]).expect("Unable to open file");
