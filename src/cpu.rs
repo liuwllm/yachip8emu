@@ -115,6 +115,7 @@ impl Emu {
                 self.pc = nnn;
                 print!("JP {}\n", nnn);
             },
+
             // 6XNN: Set
             (6, _, _, _) => {
                 let x = nibble2 as usize;
@@ -141,10 +142,9 @@ impl Emu {
 
             // DXYN: Display
             (0xD, _, _, _) => {
-                // Get the (x, y) coords for our sprite
                 let x_coord = self.v_reg[nibble2 as usize] as u16;
                 let y_coord = self.v_reg[nibble3 as usize] as u16;
-                // The last digit determines how many rows high our sprite is
+
                 let num_rows = nibble4;
                 // Keep track if any pixels were flipped
                 let mut flipped = false;
