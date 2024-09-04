@@ -132,7 +132,7 @@ impl Emu {
                         println!("RET")
                     },
                     None => {
-                        panic!("The stack was unexpectedly empty.")
+                        println!("The stack was unexpectedly empty.")
                     }
                 }
             },
@@ -207,7 +207,7 @@ impl Emu {
                 let x = nibble2 as usize;
                 let nn = (op & 0x00FF) as u8;
 
-                self.v_reg[x] += nn;
+                self.v_reg[x] = self.v_reg[x].wrapping_add(nn);
 
                 println!("ADD V{}, {}", x, nn);
             },
@@ -538,7 +538,7 @@ impl Emu {
                 let value = self.v_reg[x] as f32;
 
                 let hundreds = (value / 100.0).floor() as u8;
-                let tens = (value / 10.0).floor() as u8;
+                let tens = ((value / 10.0) % 10.0).floor() as u8;
                 let ones = (value % 10.0) as u8;
 
                 self.mem[self.i_reg as usize] = hundreds;
@@ -598,6 +598,10 @@ impl Emu {
         let start = START_ADDR as usize;
         let end = (START_ADDR as usize) + data.len();
         self.mem[start..end].copy_from_slice(data);
+    }
+
+    pub fn keypress(&mut self, index: usize, pressed: bool) {
+        self.keys[index] = pressed;
     }
 
 }
