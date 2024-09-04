@@ -1,3 +1,5 @@
+use rand::Rng;
+
 pub const SCREEN_WIDTH: usize = 64;
 pub const SCREEN_HEIGHT: usize = 32;
 
@@ -5,6 +7,7 @@ const MEM_SIZE: usize = 4096;
 const STACK_SIZE: usize = 16;
 const NUM_V: usize = 16;
 const START_ADDR: u16 = 0x200;
+const NUM_KEYS: usize = 16;
 
 const FONTSET_SIZE: usize = 80;
 const FONTSET: [u8; FONTSET_SIZE] = [
@@ -35,6 +38,7 @@ pub struct Emu {
     d_timer: u8,
     s_timer: u8,
     v_reg: [u8; NUM_V],
+    keys: [bool; NUM_KEYS],
     cosmac: bool,
 }
 
@@ -49,6 +53,7 @@ impl Emu {
             d_timer: 0,
             s_timer: 0,
             v_reg: [0; NUM_V],
+            keys: [false; NUM_KEYS],
             cosmac: false
         };
 
@@ -66,8 +71,9 @@ impl Emu {
         self.d_timer = 0;
         self.s_timer = 0;
         self.v_reg = [0; NUM_V];
-        self.mem[..FONTSET_SIZE].copy_from_slice(&FONTSET);
+        self.keys = [false; NUM_KEYS];
         self.cosmac = false;
+        self.mem[..FONTSET_SIZE].copy_from_slice(&FONTSET);
     }
 
     pub fn set_cosmac(&mut self) {
@@ -316,7 +322,7 @@ impl Emu {
 
                 self.v_reg[x] = diff;
                 println!("SUBN V{}, V{}", x, y);
-            }
+            },
 
             // 8XYE: Shift to left
             (8, _, _, 0xE) => {
@@ -330,7 +336,7 @@ impl Emu {
                 let msb = (self.v_reg[x] >> 7) & 1;
                 self.v_reg[x] <<= 1;
                 self.v_reg[0xF] = msb;
-            }
+            },
 
             // 9XY0: Skip if VX != VY
             (9, _, _, 0) => {
@@ -341,13 +347,49 @@ impl Emu {
                     self.pc += 2;
                 }
                 println!("SNE V{}, V{}", x, y);
-            }
+            },
 
             // ANNN: Set index
             (0xA, _, _, _) => {
                 let nnn = op & 0x0FFF;
                 self.i_reg = nnn;
                 println!("LD I, {}", nnn);
+            },
+
+            // BNNN: Jump with offset
+            (0xB, _, _, _) => {
+                let mut nnn = op & 0x0FFF;
+                let x = nibble2 as usize;
+
+                if self.cosmac {
+                    nnn += self.v_reg[0] as u16;
+                }
+                else {
+                    let x = nibble2 as usize;
+                    nnn += self.v_reg[x] as u16;
+                }
+
+                self.pc = nnn;
+                
+                if self.cosmac {
+                    println!("JP V0, {}", nnn);
+                }
+                else {
+                    println!("JP V{}, {}", x, nnn);
+                }
+            },
+
+            // CXNN: Random
+            (0xC, _, _, _) => {
+                let x = nibble2 as usize;
+                let nn = (op & 0x00FF) as u16;
+                
+                let mut rng = rand::thread_rng();
+                let rand_num: u16 = rng.gen();
+
+                self.v_reg[x] = (nn & rand_num) as u8;
+
+                println!("RND V{}, {}", x, nn);
             },
 
             // DXYN: Display
@@ -386,6 +428,162 @@ impl Emu {
                 }
 
                 println!("DRW V{}, V{}, {}", nibble2, nibble3, nibble4);
+            },
+
+            // EX9E: Skip if pressed
+            (0xE, _, 9, 0xE) => {
+                let x = nibble2 as usize;
+                let index = self.v_reg[x] as usize;
+
+                let key_pressed = self.keys[index];
+
+                if key_pressed {
+                    self.pc += 2;
+                }
+
+                println!("SKP V{}", x);
+            },
+
+            // EXA1: Skip if not pressed
+            (0xE, _, 0xA, 1) => {
+                let x = nibble2 as usize;
+                let index = self.v_reg[x] as usize;
+
+                let key_pressed = self.keys[index];
+
+                if !key_pressed {
+                    self.pc += 2;
+                }
+
+                println!("SKNP V{}", x);
+            },
+
+            // FX07: Set VX to delay timer value
+            (0xF, _, 0, 7) => {
+                let x = nibble2 as usize;
+
+                self.v_reg[x] = self.d_timer;
+
+                println!("LD V{}, DT", x);
+            },
+
+            // FX0A: Get key
+            (0xF, _, 0, 0xA) => {
+                let x = nibble2 as usize;
+
+                let mut key_pressed = false;
+
+                for i in 0..NUM_KEYS {
+                    if self.keys[i] {
+                        key_pressed = true;
+                        self.v_reg[x] = i as u8;
+                        break;
+                    }
+                }
+
+                if !key_pressed {
+                    self.pc -= 2;
+                }
+                else {
+                    println!("LD V{}, K", x);
+                }
+            },
+
+            // FX15: Set delay timer to VX
+            (0xF, _, 1, 5) => {
+                let x = nibble2 as usize;
+
+                self.d_timer = self.v_reg[x];
+
+                println!("LD DT ,V{}", x);
+            }
+
+            // FX18: Set sound timer to VX
+            (0xF, _, 1, 8) => {
+                let x = nibble2 as usize;
+                self.s_timer = self.v_reg[x];
+
+                println!("LD ST ,V{}", x);
+            },
+
+            // FX1E: Add to index
+            (0xF, _, 1, 0xE) => {
+                let x = nibble2 as usize;
+                
+                if self.cosmac{
+                    self.i_reg += self.v_reg[x] as u16;
+                }
+                else {
+                    self.i_reg = self.i_reg.wrapping_add(self.v_reg[x] as u16);
+                }
+
+                println!("ADD I, V{}", x);
+            },
+
+            // FX29: Font character
+            (0xF, _, 2, 9) => {
+                let x = nibble2 as usize;
+                let hex_char = self.v_reg[x] & 0x0F;
+                
+                self.i_reg = (hex_char as u16) * 5;
+
+                println!("LD F, V{}", x);
+            },
+
+
+            // FX33: Binary-coded decimal conversion
+            (0xF, _, 3, 3) => {
+                let x = nibble2 as usize;
+
+                let value = self.v_reg[x] as f32;
+
+                let hundreds = (value / 100.0).floor() as u8;
+                let tens = (value / 10.0).floor() as u8;
+                let ones = (value % 10.0) as u8;
+
+                self.mem[self.i_reg as usize] = hundreds;
+                self.mem[(self.i_reg + 1) as usize] = tens;
+                self.mem[(self.i_reg + 2) as usize] = ones;
+
+                println!("LD B, V{}", x);
+            },
+
+            // FX55: Store memory
+            (0xF, _, 5, 5) => {
+                let x = nibble2 as usize;
+
+                if self.cosmac {
+                    for i in 0..(x + 1) {
+                        self.mem[((self.i_reg as usize) + i) as usize] = self.v_reg[x];
+                        self.i_reg += 1;
+                    }
+                }
+                else {
+                    for i in 0..(x + 1) {
+                        self.mem[((self.i_reg as usize) + i) as usize] = self.v_reg[x];
+                    }
+                }
+
+                println!("LD [I], V{}", x);
+            },
+
+            // FX65: Load memory
+            (0xF, _, 6, 5) => {
+                let x = nibble2 as usize;
+
+                if self.cosmac {
+                    for i in 0..(x + 1) {
+                        self.v_reg[x] = self.mem[((self.i_reg as usize) + i) as usize]; 
+                        self.i_reg += 1;
+                    }
+                }
+                else {
+                    for i in 0..(x + 1) {
+                        self.v_reg[x] = self.mem[((self.i_reg as usize) + i) as usize]; 
+                    }
+                }
+
+                println!("LD V{}, [I]", x);
             },
 
             (_, _, _, _) => unimplemented!("Unimplemented opcode: {}", op),
